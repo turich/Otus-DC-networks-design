@@ -97,8 +97,38 @@ Client-4|eth0|10.4.0.194|255.255.255.192
 <summary> Spine-1 </summary>
 
 ```
+<Spine-1>display current-configuration
+!Software Version V200R005C10SPC607B607
+!Last configuration was updated at 2024-05-28 06:38:55+00:00
 #
 sysname Spine-1
+#
+interface GE1/0/0
+ undo portswitch
+ description to Leaf-1
+ undo shutdown
+ ip address 10.2.1.0 255.255.255.254
+#
+interface GE1/0/1
+ undo portswitch
+ description to Leaf-2
+ undo shutdown
+ ip address 10.2.1.2 255.255.255.254
+#
+interface GE1/0/2
+ undo portswitch
+ description to Leaf-3
+ undo shutdown
+ ip address 10.2.1.4 255.255.255.254
+#
+interface LoopBack1
+ description Underlay
+ ip address 10.0.1.0 255.255.255.255
+#
+interface LoopBack2
+ description Overlay
+ ip address 10.1.1.0 255.255.255.255
+#
 ```
 
 </details>
@@ -106,24 +136,219 @@ sysname Spine-1
 <details>
 <summary> Spine-2 </summary>
 
+```
+<Spine-2>display current-configuration
+!Software Version V200R005C10SPC607B607
+!Last configuration was updated at 2024-05-28 06:46:12+00:00
+#
+sysname Spine-2
+#
+interface GE1/0/0
+ undo portswitch
+ description to Leaf-1
+ undo shutdown
+ ip address 10.2.2.0 255.255.255.254
+#
+interface GE1/0/1
+ undo portswitch
+ description to Leaf-2
+ undo shutdown
+ ip address 10.2.2.2 255.255.255.254
+#
+interface GE1/0/2
+ undo portswitch
+ description to Leaf-3
+ undo shutdown
+ ip address 10.2.2.4 255.255.255.254
+#
+interface LoopBack1
+ description Underlay
+ ip address 10.0.2.0 255.255.255.255
+#
+interface LoopBack2
+ description Overlay
+ ip address 10.1.2.0 255.255.255.255
+#
+```
+
 </details>
 
 <details>
 <summary> Leaf-1 </summary>
+
+```
+<Leaf-1>display current-configuration
+!Software Version V200R005C10SPC607B607
+!Last configuration was updated at 2024-05-28 06:51:41+00:00
+#
+sysname Leaf-1
+#
+interface GE1/0/0
+ undo portswitch
+ description to Spine-1
+ undo shutdown
+ ip address 10.2.1.1 255.255.255.254
+#
+interface GE1/0/1
+ undo portswitch
+ description to Spine-2
+ undo shutdown
+ ip address 10.2.2.1 255.255.255.254
+#
+interface GE1/0/9
+ undo portswitch
+ description to Client-1
+ undo shutdown
+ ip address 10.4.0.1 255.255.255.192
+#
+interface LoopBack1
+ description Underlay
+ ip address 10.0.0.1 255.255.255.255
+#
+interface LoopBack2
+ description Overlay
+ ip address 10.1.0.1 255.255.255.255
+#
+```
 
 </details>
 
 <details>
 <summary> Leaf-2 </summary>
 
+```
+<Leaf-2>display current-configuration
+!Software Version V200R005C10SPC607B607
+!Last configuration was updated at 2024-05-28 06:58:50+00:00
+#
+sysname Leaf-2
+#
+interface GE1/0/0
+ undo portswitch
+ description to Spine-1
+ undo shutdown
+ ip address 10.2.1.3 255.255.255.254
+#
+interface GE1/0/1
+ undo portswitch
+ description to Spine-2
+ undo shutdown
+ ip address 10.2.2.3 255.255.255.254
+#
+interface GE1/0/9
+ undo portswitch
+ description to Client-2
+ undo shutdown
+ ip address 10.4.0.65 255.255.255.192
+#
+interface LoopBack1
+ description Underlay
+ ip address 10.0.0.2 255.255.255.255
+#
+interface LoopBack2
+ description Overlay
+ ip address 10.1.0.2 255.255.255.255
+#
+```
+
 </details>
 
 <details>
 <summary> Leaf-3 </summary>
 
+```
+<Leaf-3>display current-configuration
+!Software Version V200R005C10SPC607B607
+!Last configuration was updated at 2024-05-28 07:03:35+00:00
+#
+sysname Leaf-3
+#
+interface GE1/0/0
+ undo portswitch
+ description to Spine-1
+ undo shutdown
+ ip address 10.2.1.5 255.255.255.254
+#
+interface GE1/0/1
+ undo portswitch
+ description to Spine-2
+ undo shutdown
+ ip address 10.2.2.5 255.255.255.254
+#
+interface GE1/0/8
+ undo portswitch
+ description to Client-3
+ undo shutdown
+ ip address 10.4.0.129 255.255.255.192
+#
+interface GE1/0/9
+ undo portswitch
+ description to Client-4
+ undo shutdown
+ ip address 10.4.0.193 255.255.255.192
+#
+interface LoopBack1
+ description Underlay
+ ip address 10.0.0.3 255.255.255.255
+#
+interface LoopBack2
+ description Overlay
+ ip address 10.1.0.3 255.255.255.255
+#
+```
+
 </details>
 
 <details>
 <summary> Clients 1-4 </summary>
+
+```
+Clinet-1> show ip
+
+NAME        : Clinet-1[1]
+IP/MASK     : 10.4.0.2/26
+GATEWAY     : 10.4.0.1
+DNS         :
+MAC         : 00:50:79:66:68:06
+LPORT       : 20000
+RHOST:PORT  : 127.0.0.1:30000
+MTU         : 1500
+
+
+Client-2> show ip
+
+NAME        : Client-2[1]
+IP/MASK     : 10.4.0.66/26
+GATEWAY     : 10.4.0.65
+DNS         :
+MAC         : 00:50:79:66:68:07
+LPORT       : 20000
+RHOST:PORT  : 127.0.0.1:30000
+MTU         : 1500
+
+
+Client-3> show ip
+
+NAME        : Client-3[1]
+IP/MASK     : 10.4.0.130/26
+GATEWAY     : 10.4.0.129
+DNS         :
+MAC         : 00:50:79:66:68:08
+LPORT       : 20000
+RHOST:PORT  : 127.0.0.1:30000
+MTU         : 1500
+
+
+Client-4> show ip
+
+NAME        : Client-4[1]
+IP/MASK     : 10.4.0.194/26
+GATEWAY     : 10.4.0.193
+DNS         :
+MAC         : 00:50:79:66:68:09
+LPORT       : 20000
+RHOST:PORT  : 127.0.0.1:30000
+MTU         : 1500
+```
 
 </details>
