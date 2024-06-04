@@ -123,7 +123,7 @@ NET идентификатор (идентификатор сети) состо�
 
     bfd
 
-Для того, чтобы не настраивать BFD на каждом интерфейсе, настраиваем динамический BFD для IS-IS.
+Для того, чтобы не настраивать BFD на каждом интерфейсе, настраиваем динамическое поднятие BFD для IS-IS сессии.
 
 Пример настройки:
 
@@ -271,7 +271,53 @@ Destination/Mask    Proto   Pre  Cost        Flags NextHop         Interface
 <summary> Spine-1 </summary>
 
 ```
-
+<Spine-1>display current-configuration
+!Software Version V200R005C10SPC607B607
+!Last configuration was updated at 2024-05-31 14:46:46+00:00 by SYSTEM automatically
+!Last configuration was saved at 2024-05-31 14:43:58+00:00
+#
+sysname Spine-1
+#
+bfd
+#
+isis 1
+ cost-style wide
+ bfd all-interfaces enable
+ network-entity 49.0010.0100.0000.1000.00
+#
+interface GE1/0/0
+ undo portswitch
+ description to Leaf-1
+ undo shutdown
+ ip address 10.2.1.0 255.255.255.254
+ isis enable 1
+ isis circuit-type p2p
+#
+interface GE1/0/1
+ undo portswitch
+ description to Leaf-2
+ undo shutdown
+ ip address 10.2.1.2 255.255.255.254
+ isis enable 1
+ isis circuit-type p2p
+#
+interface GE1/0/2
+ undo portswitch
+ description to Leaf-3
+ undo shutdown
+ ip address 10.2.1.4 255.255.255.254
+ isis enable 1
+ isis circuit-type p2p
+#
+interface LoopBack1
+ description Underlay
+ ip address 10.0.1.0 255.255.255.255
+ isis enable 1
+#
+interface LoopBack2
+ description Overlay
+ ip address 10.1.1.0 255.255.255.255
+#
 ```
 
 </details>
@@ -280,7 +326,53 @@ Destination/Mask    Proto   Pre  Cost        Flags NextHop         Interface
 <summary> Spine-2 </summary>
 
 ```
-
+<Spine-2>display current-configuration
+!Software Version V200R005C10SPC607B607
+!Last configuration was updated at 2024-06-03 06:40:09+00:00
+!Last configuration was saved at 2024-05-31 08:52:11+00:00
+#
+sysname Spine-2
+#
+bfd
+#
+isis 1
+ cost-style wide
+ bfd all-interfaces enable
+ network-entity 49.0010.0100.0000.2000.00
+#
+interface GE1/0/0
+ undo portswitch
+ description to Leaf-1
+ undo shutdown
+ ip address 10.2.2.0 255.255.255.254
+ isis enable 1
+ isis circuit-type p2p
+#
+interface GE1/0/1
+ undo portswitch
+ description to Leaf-2
+ undo shutdown
+ ip address 10.2.2.2 255.255.255.254
+ isis enable 1
+ isis circuit-type p2p
+#
+interface GE1/0/2
+ undo portswitch
+ description to Leaf-3
+ undo shutdown
+ ip address 10.2.2.4 255.255.255.254
+ isis enable 1
+ isis circuit-type p2p
+#
+interface LoopBack1
+ description Underlay
+ ip address 10.0.2.0 255.255.255.255
+ isis enable 1
+#
+interface LoopBack2
+ description Overlay
+ ip address 10.1.2.0 255.255.255.255
+#
 ```
 
 </details>
@@ -343,7 +435,52 @@ interface LoopBack2
 <summary> Leaf-2 </summary>
 
 ```
-
+<Leaf-2>display current-configuration
+!Software Version V200R005C10SPC607B607
+!Last configuration was updated at 2024-05-31 14:38:21+00:00
+!Last configuration was saved at 2024-05-31 08:52:21+00:00
+#
+sysname Leaf-2
+#
+bfd
+#
+isis 1
+ is-level level-1
+ cost-style wide
+ bfd all-interfaces enable
+ network-entity 49.0010.0100.0000.0002.00
+#
+interface GE1/0/0
+ undo portswitch
+ description to Spine-1
+ undo shutdown
+ ip address 10.2.1.3 255.255.255.254
+ isis enable 1
+ isis circuit-type p2p
+#
+interface GE1/0/1
+ undo portswitch
+ description to Spine-2
+ undo shutdown
+ ip address 10.2.2.3 255.255.255.254
+ isis enable 1
+ isis circuit-type p2p
+#
+interface GE1/0/9
+ undo portswitch
+ description to Client-2
+ undo shutdown
+ ip address 10.4.0.65 255.255.255.192
+#
+interface LoopBack1
+ description Underlay
+ ip address 10.0.0.2 255.255.255.255
+ isis enable 1
+#
+interface LoopBack2
+ description Overlay
+ ip address 10.1.0.2 255.255.255.255
+#
 ```
 
 </details>
@@ -352,7 +489,58 @@ interface LoopBack2
 <summary> Leaf-3 </summary>
 
 ```
-
+<Leaf-3>display current-configuration
+!Software Version V200R005C10SPC607B607
+!Last configuration was updated at 2024-05-31 14:39:25+00:00
+!Last configuration was saved at 2024-05-31 08:52:36+00:00
+#
+sysname Leaf-3
+#
+bfd
+#
+isis 1
+ is-level level-1
+ cost-style wide
+ bfd all-interfaces enable
+ network-entity 49.0010.0100.0000.0003.00
+#
+interface GE1/0/0
+ undo portswitch
+ description to Spine-1
+ undo shutdown
+ ip address 10.2.1.5 255.255.255.254
+ isis enable 1
+ isis circuit-type p2p
+#
+interface GE1/0/1
+ undo portswitch
+ description to Spine-2
+ undo shutdown
+ ip address 10.2.2.5 255.255.255.254
+ isis enable 1
+ isis circuit-type p2p
+#
+interface GE1/0/8
+ undo portswitch
+ description to Client-3
+ undo shutdown
+ ip address 10.4.0.129 255.255.255.192
+#
+interface GE1/0/9
+ undo portswitch
+ description to Client-4
+ undo shutdown
+ ip address 10.4.0.193 255.255.255.192
+#
+interface LoopBack1
+ description Underlay
+ ip address 10.0.0.3 255.255.255.255
+ isis enable 1
+#
+interface LoopBack2
+ description Overlay
+ ip address 10.1.0.3 255.255.255.255
+#
 ```
 
 </details>
