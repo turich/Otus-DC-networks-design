@@ -117,8 +117,45 @@ NET идентификатор (идентификатор сети) состо�
 
 ### Настройка BFD для ISIS
 
+Поднимаем BFD на устройстве. 
 
+Пример настройки:
 
+    bfd
+
+Для того, чтобы не настраивать BFD на каждом интерфейсе, настраиваем динамический BFD для IS-IS.
+
+Пример настройки:
+
+    isis 1
+      bfd all-interfaces enable
+
+Проверям наличие и состояние BFD сессий с соседями:
+
+```
+<Leaf-1>display bfd session all
+S: Static session
+D: Dynamic session
+IP: IP session
+IF: Single-hop session
+PEER: Multi-hop session
+LDP: LDP session
+LSP: Label switched path
+TE: Traffic Engineering
+AUTO: Automatically negotiated session
+VXLAN: VXLAN session
+VSI: VSI PW session
+(w): State in WTR
+(*): State is invalid
+Total UP/DOWN Session Number : 2/0
+--------------------------------------------------------------------------------
+Local      Remote     PeerIpAddr      State     Type        InterfaceName
+--------------------------------------------------------------------------------
+16385      16388      10.2.2.0        Up        D/IP-IF      GE1/0/1
+16386      16385      10.2.1.0        Up        D/IP-IF      GE1/0/0
+--------------------------------------------------------------------------------
+```
+ 
 ### Проверка наличия IP связанности
 
 Для примера проверим работу ISIS и IP связность на устройстве Leaf-1
@@ -252,7 +289,52 @@ Destination/Mask    Proto   Pre  Cost        Flags NextHop         Interface
 <summary> Leaf-1 </summary>
 
 ```
-
+<Leaf-1>display current-configuration
+!Software Version V200R005C10SPC607B607
+!Last configuration was updated at 2024-05-31 14:46:39+00:00 by SYSTEM automatically
+!Last configuration was saved at 2024-05-31 14:44:09+00:00
+#
+sysname Leaf-1
+#
+bfd
+#
+isis 1
+ is-level level-1
+ cost-style wide
+ bfd all-interfaces enable
+ network-entity 49.0010.0100.0000.0001.00
+#
+interface GE1/0/0
+ undo portswitch
+ description to Spine-1
+ undo shutdown
+ ip address 10.2.1.1 255.255.255.254
+ isis enable 1
+ isis circuit-type p2p
+#
+interface GE1/0/1
+ undo portswitch
+ description to Spine-2
+ undo shutdown
+ ip address 10.2.2.1 255.255.255.254
+ isis enable 1
+ isis circuit-type p2p
+#
+interface GE1/0/9
+ undo portswitch
+ description to Client-1
+ undo shutdown
+ ip address 10.4.0.1 255.255.255.192
+#
+interface LoopBack1
+ description Underlay
+ ip address 10.0.0.1 255.255.255.255
+ isis enable 1
+#
+interface LoopBack2
+ description Overlay
+ ip address 10.1.0.1 255.255.255.255
+#
 ```
 
 </details>
