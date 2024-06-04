@@ -66,74 +66,107 @@ Client-4|eth0|10.4.0.194|255.255.255.192
 
 ### Настройка ISIS
 
-Поднимаем ISIS на устройстве и анонсируем подсеть Lo1 в OSPF домен. В качестве router id используем IP с интерфейса Loopback1.
+На устройствах типа Leaf настраиваем L1, на устройствах типа Spine настраиваем L1/L2 (L2 оставляем для возможных расширений в будущем).
 
-Пример настройки:
+Поднимаем ISIS на устройстве. 
 
-    router id 10.0.0.1
-    #
-    ospf 1
-      suppress-reachability
-      area 0.0.0.0
-        network 10.0.0.0 0.0.255.255
+Пример настройки для Leaf:
 
-*suppress-reachability* - убирает анонсы p2p IP адресации из OSPF домена.
+    isis 1
+      is-level level-1
+      cost-style wide
+      network-entity 49.0010.0100.0000.0001.00
 
-Для топологии CLOS хорошо подходит OSPF в режиме работы *point-to-point*. 
+NET идентификатор (идентификатор сети) состоит из:
 
-*point-to-point* - Используется для указания двухточечного типа сети, когда один канал соединяет только два маршрутизатора. И поэтому нет необходимости в ручном конфигурировании соседних устройств. Для каждого логического канала при реализации двухточечных соединений используется своя подсеть. В данном типе сети OSPF выборы назначенных маршрутизаторов не осуществляются, а установка отношений смежности осуществляется автоматически с помощью периодической рассылки hello пакетов. Данный тип сети применяется, когда требуется установить отношения смежности только между маршрутизаторами.
- 
-Поднимаем OSPF на всех интерфейсах Leaf <-> Spine.
+- "AFI" (Authority and Format Identifier) - является частью номера области, хотя постоянно изображается отдельно. 
+  Подавляющее большинство реализаций IS-IS на маршрутизаторах имеют это поле, равным 49. Адреса, у которых AFI был равен 49, относились к классу локальных.
 
-Пример настройки интерфейса:
+- "Area ID", номер области, к которой принадлежит маршрутизатор. Это поле переменной длины.
+
+- "System ID" - это идентификатор маршрутизатора. У каждого маршрутизатора в топологии он должен быть уникальным, 
+  поскольку именно по System ID маршрутизаторы "узнают" друг друга при осознании топологии.
+
+- "Sel" - всегда 00.
+
+В качестве *System ID* будем использовать IP адрес Loopback1 интерфейса, в качестве *Area ID* номер региона для облегчения дебага/траблшутинга.
+
+Тогда идентификатор сети будет вида:
+
+49.00xx.yyyy.yyyy.yyyy.00
+
+где
+- "xx" - номер региона
+- "yyyy.yyyy.yyyy" - IP адрес Loopback1 интерфейса  
+    \- если IP-адрес 10.0.0.1, то yyyy.yyyy.yyyy = 010.000.000.001 = 0100.0000.0001 (недостающие разряды дополняются нулями)
+
+Для топологии CLOS хорошо подходит ISIS в режиме работы *point-to-point*. 
+
+Поднимаем ISIS на всех интерфейсах Leaf <-> Spine и Loopback1.
+
+Пример настройки физического интерфейса:
 
     interface GE1/0/0
-      ospf network-type p2p
-      ospf enable 1 area 0.0.0.0
+      isis enable 1
+      isis circuit-type p2p
+
+Пример настройки Loopback интерфейса:
+
+    interface LoopBack1
+      isis enable 1
+
+### Настройка BFD для ISIS
+
+
 
 ### Проверка наличия IP связанности
 
-Для примера проверим работу OSPF и IP связность на устройстве Leaf-1
+Для примера проверим работу ISIS и IP связность на устройстве Leaf-1
 
-Проверям наличие OSPF соседей:
+Проверям наличие ISIS соседей:
 
 ```
-<Leaf-1>display ospf peer brief
-OSPF Process 1 with Router ID 10.0.0.1
-                   Peer Statistic Information
-Total number of peer(s): 2
- Peer(s) in full state: 2
------------------------------------------------------------------------------
- Area Id         Interface                  Neighbor id          State
- 0.0.0.0         GE1/0/0                    10.0.1.0             Full
- 0.0.0.0         GE1/0/1                    10.0.2.0             Full
------------------------------------------------------------------------------
+<Leaf-1>display isis peer
+
+Peer Information for ISIS(1)
+--------------------------------------------------------------------------------
+
+  System ID     Interface       Circuit ID        State HoldTime(s) Type     PRI
+--------------------------------------------------------------------------------
+0100.0000.1000  GE1/0/0         0000000005         Up            30 L1        --
+0100.0000.2000  GE1/0/1         0000000005         Up            29 L1        --
+
+Total Peer(s): 2
 ```
 
 Проверяем наличие необходимых машрутов в таблице маршрутизации:
 
 ```
-<Leaf-1>display ip routing-table | include OSPF
+<Leaf-1>display ip routing-table | include ISIS
 Proto: Protocol        Pre: Preference
 Route Flags: R - relay, D - download to fib, T - to vpn-instance, B - black hole route
 ------------------------------------------------------------------------------
 Routing Table : _public_
-         Destinations : 17       Routes : 19
+         Destinations : 21       Routes : 23
 
 Destination/Mask    Proto   Pre  Cost        Flags NextHop         Interface
 
-       10.0.0.2/32  OSPF    10   2             D   10.2.2.0        GE1/0/1
-                    OSPF    10   2             D   10.2.1.0        GE1/0/0
-       10.0.0.3/32  OSPF    10   2             D   10.2.2.0        GE1/0/1
-                    OSPF    10   2             D   10.2.1.0        GE1/0/0
-       10.0.1.0/32  OSPF    10   1             D   10.2.1.0        GE1/0/0
-       10.0.2.0/32  OSPF    10   1             D   10.2.2.0        GE1/0/1
+       10.0.0.2/32  ISIS-L1 15   20            D   10.2.1.0        GE1/0/0
+                    ISIS-L1 15   20            D   10.2.2.0        GE1/0/1
+       10.0.0.3/32  ISIS-L1 15   20            D   10.2.1.0        GE1/0/0
+                    ISIS-L1 15   20            D   10.2.2.0        GE1/0/1
+       10.0.1.0/32  ISIS-L1 15   10            D   10.2.1.0        GE1/0/0
+       10.0.2.0/32  ISIS-L1 15   10            D   10.2.2.0        GE1/0/1
+       10.2.1.2/31  ISIS-L1 15   20            D   10.2.1.0        GE1/0/0
+       10.2.1.4/31  ISIS-L1 15   20            D   10.2.1.0        GE1/0/0
+       10.2.2.2/31  ISIS-L1 15   20            D   10.2.2.0        GE1/0/1
+       10.2.2.4/31  ISIS-L1 15   20            D   10.2.2.0        GE1/0/1
 ```
 
 Проверяем доступность Spin'ов:
 
 ```
-<Leaf-1>ping -a 10.0.0.1 10.0.1.0
+<Leaf-1>ping 10.0.1.0
   PING 10.0.1.0: 56  data bytes, press CTRL_C to break
     Reply from 10.0.1.0: bytes=56 Sequence=1 ttl=255 time=34 ms
     Reply from 10.0.1.0: bytes=56 Sequence=2 ttl=255 time=4 ms
@@ -147,7 +180,7 @@ Destination/Mask    Proto   Pre  Cost        Flags NextHop         Interface
     0.00% packet loss
     round-trip min/avg/max = 3/9/34 ms
 
-<Leaf-1>ping -a 10.0.0.1 10.0.2.0
+<Leaf-1>ping 10.0.2.0
   PING 10.0.2.0: 56  data bytes, press CTRL_C to break
     Reply from 10.0.2.0: bytes=56 Sequence=1 ttl=255 time=21 ms
     Reply from 10.0.2.0: bytes=56 Sequence=2 ttl=255 time=4 ms
@@ -166,7 +199,7 @@ Destination/Mask    Proto   Pre  Cost        Flags NextHop         Interface
 
 ```
 <Leaf-1>
-<Leaf-1>ping -a 10.0.0.1 10.0.0.2
+<Leaf-1>ping 10.0.0.2
   PING 10.0.0.2: 56  data bytes, press CTRL_C to break
     Reply from 10.0.0.2: bytes=56 Sequence=1 ttl=254 time=24 ms
     Reply from 10.0.0.2: bytes=56 Sequence=2 ttl=254 time=6 ms
@@ -180,7 +213,7 @@ Destination/Mask    Proto   Pre  Cost        Flags NextHop         Interface
     0.00% packet loss
     round-trip min/avg/max = 5/9/24 ms
 
-<Leaf-1>ping -a 10.0.0.1 10.0.0.3
+<Leaf-1>ping 10.0.0.3
   PING 10.0.0.3: 56  data bytes, press CTRL_C to break
     Reply from 10.0.0.3: bytes=56 Sequence=1 ttl=254 time=26 ms
     Reply from 10.0.0.3: bytes=56 Sequence=2 ttl=254 time=7 ms
@@ -201,52 +234,7 @@ Destination/Mask    Proto   Pre  Cost        Flags NextHop         Interface
 <summary> Spine-1 </summary>
 
 ```
-<Spine-1>display current-configuration
-!Software Version V200R005C10SPC607B607
-!Last configuration was updated at 2024-05-29 19:32:26+00:00
-!Last configuration was saved at 2024-05-29 19:34:30+00:00
-#
-sysname Spine-1
-#
-router id 10.0.1.0
-#
-interface GE1/0/0
- undo portswitch
- description to Leaf-1
- undo shutdown
- ip address 10.2.1.0 255.255.255.254
- ospf network-type p2p
- ospf enable 1 area 0.0.0.0
-#
-interface GE1/0/1
- undo portswitch
- description to Leaf-2
- undo shutdown
- ip address 10.2.1.2 255.255.255.254
- ospf network-type p2p
- ospf enable 1 area 0.0.0.0
-#
-interface GE1/0/2
- undo portswitch
- description to Leaf-3
- undo shutdown
- ip address 10.2.1.4 255.255.255.254
- ospf network-type p2p
- ospf enable 1 area 0.0.0.0
-#
-interface LoopBack1
- description Underlay
- ip address 10.0.1.0 255.255.255.255
-#
-interface LoopBack2
- description Overlay
- ip address 10.1.1.0 255.255.255.255
-#
-ospf 1
- suppress-reachability
- area 0.0.0.0
-  network 10.0.0.0 0.0.255.255
-#
+
 ```
 
 </details>
@@ -255,52 +243,7 @@ ospf 1
 <summary> Spine-2 </summary>
 
 ```
-<Spine-2>display current-configuration
-!Software Version V200R005C10SPC607B607
-!Last configuration was updated at 2024-05-29 19:31:18+00:00
-!Last configuration was saved at 2024-05-29 19:33:46+00:00
-#
-sysname Spine-2
-#
-router id 10.0.2.0
-#
-interface GE1/0/0
- undo portswitch
- description to Leaf-1
- undo shutdown
- ip address 10.2.2.0 255.255.255.254
- ospf network-type p2p
- ospf enable 1 area 0.0.0.0
-#
-interface GE1/0/1
- undo portswitch
- description to Leaf-2
- undo shutdown
- ip address 10.2.2.2 255.255.255.254
- ospf network-type p2p
- ospf enable 1 area 0.0.0.0
-#
-interface GE1/0/2
- undo portswitch
- description to Leaf-3
- undo shutdown
- ip address 10.2.2.4 255.255.255.254
- ospf network-type p2p
- ospf enable 1 area 0.0.0.0
-#
-interface LoopBack1
- description Underlay
- ip address 10.0.2.0 255.255.255.255
-#
-interface LoopBack2
- description Overlay
- ip address 10.1.2.0 255.255.255.255
-#
-ospf 1
- suppress-reachability
- area 0.0.0.0
-  network 10.0.0.0 0.0.255.255
-#
+
 ```
 
 </details>
@@ -309,50 +252,7 @@ ospf 1
 <summary> Leaf-1 </summary>
 
 ```
-<Leaf-1>display current-configuration
-!Software Version V200R005C10SPC607B607
-!Last configuration was updated at 2024-05-29 19:29:38+00:00
-!Last configuration was saved at 2024-05-29 19:49:42+00:00
-#
-sysname Leaf-1
-#
-router id 10.0.0.1
-#
-interface GE1/0/0
- undo portswitch
- description to Spine-1
- undo shutdown
- ip address 10.2.1.1 255.255.255.254
- ospf network-type p2p
- ospf enable 1 area 0.0.0.0
-#
-interface GE1/0/1
- undo portswitch
- description to Spine-2
- undo shutdown
- ip address 10.2.2.1 255.255.255.254
- ospf network-type p2p
- ospf enable 1 area 0.0.0.0
-#
-interface GE1/0/9
- undo portswitch
- description to Client-1
- undo shutdown
- ip address 10.4.0.1 255.255.255.192
-#
-interface LoopBack1
- description Underlay
- ip address 10.0.0.1 255.255.255.255
-#
-interface LoopBack2
- description Overlay
- ip address 10.1.0.1 255.255.255.255
-#
-ospf 1
- suppress-reachability
- area 0.0.0.0
-  network 10.0.0.0 0.0.255.255
-#
+
 ```
 
 </details>
@@ -361,50 +261,7 @@ ospf 1
 <summary> Leaf-2 </summary>
 
 ```
-<Leaf-2>display current-configuration
-!Software Version V200R005C10SPC607B607
-!Last configuration was updated at 2024-05-29 19:35:59+00:00
-!Last configuration was saved at 2024-05-29 19:38:00+00:00
-#
-sysname Leaf-2
-#
-router id 10.0.0.2
-#
-interface GE1/0/0
- undo portswitch
- description to Spine-1
- undo shutdown
- ip address 10.2.1.3 255.255.255.254
- ospf network-type p2p
- ospf enable 1 area 0.0.0.0
-#
-interface GE1/0/1
- undo portswitch
- description to Spine-2
- undo shutdown
- ip address 10.2.2.3 255.255.255.254
- ospf network-type p2p
- ospf enable 1 area 0.0.0.0
-#
-interface GE1/0/9
- undo portswitch
- description to Client-2
- undo shutdown
- ip address 10.4.0.65 255.255.255.192
-#
-interface LoopBack1
- description Underlay
- ip address 10.0.0.2 255.255.255.255
-#
-interface LoopBack2
- description Overlay
- ip address 10.1.0.2 255.255.255.255
-#
-ospf 1
- suppress-reachability
- area 0.0.0.0
-  network 10.0.0.0 0.0.255.255
-#
+
 ```
 
 </details>
@@ -413,56 +270,7 @@ ospf 1
 <summary> Leaf-3 </summary>
 
 ```
-<Leaf-3>display current-configuration
-!Software Version V200R005C10SPC607B607
-!Last configuration was updated at 2024-05-29 19:39:44+00:00
-!Last configuration was saved at 2024-05-29 19:40:14+00:00
-#
-sysname Leaf-3
-#
-router id 10.0.0.3
-#
-interface GE1/0/0
- undo portswitch
- description to Spine-1
- undo shutdown
- ip address 10.2.1.5 255.255.255.254
- ospf network-type p2p
- ospf enable 1 area 0.0.0.0
-#
-interface GE1/0/1
- undo portswitch
- description to Spine-2
- undo shutdown
- ip address 10.2.2.5 255.255.255.254
- ospf network-type p2p
- ospf enable 1 area 0.0.0.0
-#
-interface GE1/0/8
- undo portswitch
- description to Client-3
- undo shutdown
- ip address 10.4.0.129 255.255.255.192
-#
-interface GE1/0/9
- undo portswitch
- description to Client-4
- undo shutdown
- ip address 10.4.0.193 255.255.255.192
-#
-interface LoopBack1
- description Underlay
- ip address 10.0.0.3 255.255.255.255
-#
-interface LoopBack2
- description Overlay
- ip address 10.1.0.3 255.255.255.255
-#
-ospf 1
- suppress-reachability
- area 0.0.0.0
-  network 10.0.0.0 0.0.255.255
-#
+
 ```
 
 </details>
