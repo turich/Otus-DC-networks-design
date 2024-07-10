@@ -149,7 +149,7 @@ Client-2|eth0|10.4.0.3|255.255.255.192
        neighbor 10.0.1.0 peer group SPINES
        neighbor 10.0.2.0 peer group SPINES
 
-Добавляем поддержку address-family evpn в BGP для обмена EVPN маршрутами.
+Добавляем поддержку семейства адресов evpn в BGP для обмена EVPN маршрутами.
 
 Пример настройки на Spine (Huawei):
 
@@ -188,8 +188,46 @@ Client-2|eth0|10.4.0.3|255.255.255.192
 
 #### Настройка VxLAN L2 VNI
 
+Перед началом настройки введем немного терминологии:
 
+VTEP — Vitual Tunnel End Point, устройство на котором начинается или заканчивается VxLAN тоннель. В нашей топологии все Leaf коммутаторы являются VTEP.
 
+VNI — Virtual Network Index — идентификатор сети в рамках VxLAN. Можно провести аналогию с VLAN. Однако есть некоторые отличия. При использовании фабрики, VLAN становятся уникальными только в рамках одного Leaf коммутатора и не передаются по сети. Но с каждым VLAN может быть проассоциирован номер VNI, который уже передается по сети.
+
+Пример настройки VTEP:
+
+    interface Vxlan1
+       vxlan source-interface Loopback1
+       vxlan udp-port 4789
+       vxlan learn-restrict any
+    
+На Leaf-1 создадим VLAN 100 и разрешим его в сторону Client-1. На Leaf-2 создадим VLAN 200 и разрешим его в сторону Client-2.
+
+Пример настройки для Leaf-1:
+
+    vlan 100
+    !
+    interface Ethernet8
+       description to Client-1
+       switchport access vlan 100
+    !
+
+Создаем VNI 10100 и добавляем в него VLAN 100 на Leaf-1 и VLAN 200 на Leaf-2.
+
+Пример настройки для Leaf-1:
+
+    interface Vxlan1
+       vxlan vlan 100 vni 10100
+    !
+    router bgp 65000
+       vlan 100
+          rd 10.1.0.1:10100
+          route-target both 65000:10100
+          redistribute learned
+
+Команда redistribute learned отвечает за то, что как только коммутатор узнает мак через data plane, он его анонсирует через bgp.
+
+Проверям, что устройства 
 
 ### Проверка наличия IP связанности
 
