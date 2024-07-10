@@ -227,117 +227,70 @@ VNI — Virtual Network Index — идентификатор сети в рам�
 
 Команда redistribute learned отвечает за то, что как только коммутатор узнает мак через data plane, он его анонсирует через bgp.
 
-Проверям, что устройства 
+Проверям, что устройства обменялись type 3 маршрутами:
 
-### Проверка наличия IP связанности
+    Leaf-1#show bgp evpn route-type imet
+    BGP routing table information for VRF default
+    Router identifier 10.1.0.1, local AS number 65000
+    Route status codes: * - valid, > - active, S - Stale, E - ECMP head, e - ECMP
+                        c - Contributing to ECMP, % - Pending BGP convergence
+    Origin codes: i - IGP, e - EGP, ? - incomplete
+    AS Path Attributes: Or-ID - Originator ID, C-LST - Cluster List, LL Nexthop - Link Local Nexthop
+    
+              Network                Next Hop              Metric  LocPref Weight  Path
+     * >      RD: 10.1.0.1:10100 imet 10.0.0.1
+                                     -                     -       -       0       i
+     * >Ec    RD: 10.1.0.2:10100 imet 10.0.0.2
+                                     10.0.0.2              -       100     0       i Or-ID: 10.1.0.2 C-LST: 10.1.1.0
+     *  ec    RD: 10.1.0.2:10100 imet 10.0.0.2
+                                     10.0.0.2              -       100     0       i Or-ID: 10.1.0.2 C-LST: 10.1.2.0
 
-Для примера проверим работу iBGP и IP связность на устройстве Leaf-1
+Видим 2 машрута, так как у нас два пути между Leaf'ми.
 
-Проверям наличие iBGP соседей:
+При этом type 2 у нас пока нет:
 
-```
-<Leaf-1>display bgp peer
- BGP local router ID        : 10.0.0.1
- Local AS number            : 65000
- Total number of peers      : 2
- Peers in established state : 2
+    Leaf-1#show bgp evpn route-type mac-ip
+    BGP routing table information for VRF default
+    Router identifier 10.1.0.1, local AS number 65000
+    Route status codes: * - valid, > - active, S - Stale, E - ECMP head, e - ECMP
+                        c - Contributing to ECMP, % - Pending BGP convergence
+    Origin codes: i - IGP, e - EGP, ? - incomplete
+    AS Path Attributes: Or-ID - Originator ID, C-LST - Cluster List, LL Nexthop - Link Local Nexthop
+    
+              Network                Next Hop              Metric  LocPref Weight  Path
+    Leaf-1#
 
-  Peer            V          AS  MsgRcvd  MsgSent  OutQ  Up/Down       State  PrefRcv
-  10.2.1.0        4       65000     6236     6215     0 11:00:15 Established        8
-  10.2.2.0        4       65000     4347     4348     0 02:27:44 Established        8
-```
+### Проверка наличия IP связанности между клиентами
 
-Проверяем наличие необходимых машрутов в таблице маршрутизации:
-
-```
-<Leaf-1>display ip routing-table | include BGP
-Proto: Protocol        Pre: Preference
-Route Flags: R - relay, D - download to fib, T - to vpn-instance, B - black hole route
-------------------------------------------------------------------------------
-Routing Table : _public_
-         Destinations : 21       Routes : 27
-
-Destination/Mask    Proto   Pre  Cost        Flags NextHop         Interface
-
-       10.0.0.2/32  IBGP    255  0             RD  10.2.1.3        GE1/0/0
-                    IBGP    255  0             RD  10.2.2.3        GE1/0/1
-       10.0.0.3/32  IBGP    255  0             RD  10.2.1.5        GE1/0/0
-                    IBGP    255  0             RD  10.2.2.5        GE1/0/1
-       10.0.1.0/32  IBGP    255  0             RD  10.2.1.0        GE1/0/0
-       10.0.2.0/32  IBGP    255  0             RD  10.2.2.0        GE1/0/1
-       10.2.1.2/31  IBGP    255  0             RD  10.2.1.0        GE1/0/0
-                    IBGP    255  0             RD  10.2.2.3        GE1/0/1
-       10.2.1.4/31  IBGP    255  0             RD  10.2.1.0        GE1/0/0
-                    IBGP    255  0             RD  10.2.2.5        GE1/0/1
-       10.2.2.2/31  IBGP    255  0             RD  10.2.2.0        GE1/0/1
-                    IBGP    255  0             RD  10.2.1.3        GE1/0/0
-       10.2.2.4/31  IBGP    255  0             RD  10.2.2.0        GE1/0/1
-                    IBGP    255  0             RD  10.2.1.5        GE1/0/0
-```
-
-Проверяем доступность Spin'ов:
+Проверяем наличия IP связанности между клиентами:
 
 ```
-<Leaf-1>ping 10.0.1.0
-  PING 10.0.1.0: 56  data bytes, press CTRL_C to break
-    Reply from 10.0.1.0: bytes=56 Sequence=1 ttl=255 time=30 ms
-    Reply from 10.0.1.0: bytes=56 Sequence=2 ttl=255 time=4 ms
-    Reply from 10.0.1.0: bytes=56 Sequence=3 ttl=255 time=5 ms
-    Reply from 10.0.1.0: bytes=56 Sequence=4 ttl=255 time=5 ms
-    Reply from 10.0.1.0: bytes=56 Sequence=5 ttl=255 time=6 ms
+Client-1> ping 10.4.0.3
 
-  --- 10.0.1.0 ping statistics ---
-    5 packet(s) transmitted
-    5 packet(s) received
-    0.00% packet loss
-    round-trip min/avg/max = 4/10/30 ms
-
-<Leaf-1>ping 10.0.2.0
-  PING 10.0.2.0: 56  data bytes, press CTRL_C to break
-    Reply from 10.0.2.0: bytes=56 Sequence=1 ttl=255 time=18 ms
-    Reply from 10.0.2.0: bytes=56 Sequence=2 ttl=255 time=4 ms
-    Reply from 10.0.2.0: bytes=56 Sequence=3 ttl=255 time=4 ms
-    Reply from 10.0.2.0: bytes=56 Sequence=4 ttl=255 time=3 ms
-    Reply from 10.0.2.0: bytes=56 Sequence=5 ttl=255 time=7 ms
-
-  --- 10.0.2.0 ping statistics ---
-    5 packet(s) transmitted
-    5 packet(s) received
-    0.00% packet loss
-    round-trip min/avg/max = 3/7/18 ms
+84 bytes from 10.4.0.3 icmp_seq=1 ttl=64 time=207.418 ms
+84 bytes from 10.4.0.3 icmp_seq=2 ttl=64 time=38.311 ms
+84 bytes from 10.4.0.3 icmp_seq=3 ttl=64 time=46.263 ms
+84 bytes from 10.4.0.3 icmp_seq=4 ttl=64 time=34.521 ms
+84 bytes from 10.4.0.3 icmp_seq=5 ttl=64 time=31.419 ms
 ```
 
-Проверяем доступность Leaf'ов:
+Так же на Leaf видим, что появились машруты type 2
 
-```
-<Leaf-1>ping 10.0.0.2
-  PING 10.0.0.2: 56  data bytes, press CTRL_C to break
-    Reply from 10.0.0.2: bytes=56 Sequence=1 ttl=254 time=33 ms
-    Reply from 10.0.0.2: bytes=56 Sequence=2 ttl=254 time=7 ms
-    Reply from 10.0.0.2: bytes=56 Sequence=3 ttl=254 time=7 ms
-    Reply from 10.0.0.2: bytes=56 Sequence=4 ttl=254 time=7 ms
-    Reply from 10.0.0.2: bytes=56 Sequence=5 ttl=254 time=6 ms
-
-  --- 10.0.0.2 ping statistics ---
-    5 packet(s) transmitted
-    5 packet(s) received
-    0.00% packet loss
-    round-trip min/avg/max = 6/12/33 ms
-
-<Leaf-1>ping 10.0.0.3
-  PING 10.0.0.3: 56  data bytes, press CTRL_C to break
-    Reply from 10.0.0.3: bytes=56 Sequence=1 ttl=254 time=17 ms
-    Reply from 10.0.0.3: bytes=56 Sequence=2 ttl=254 time=7 ms
-    Reply from 10.0.0.3: bytes=56 Sequence=3 ttl=254 time=8 ms
-    Reply from 10.0.0.3: bytes=56 Sequence=4 ttl=254 time=9 ms
-    Reply from 10.0.0.3: bytes=56 Sequence=5 ttl=254 time=7 ms
-
-  --- 10.0.0.3 ping statistics ---
-    5 packet(s) transmitted
-    5 packet(s) received
-    0.00% packet loss
-    round-trip min/avg/max = 7/9/17 ms
-```
+    Leaf-1#show bgp evpn route-type mac-ip
+    BGP routing table information for VRF default
+    Router identifier 10.1.0.1, local AS number 65000
+    Route status codes: * - valid, > - active, S - Stale, E - ECMP head, e - ECMP
+                        c - Contributing to ECMP, % - Pending BGP convergence
+    Origin codes: i - IGP, e - EGP, ? - incomplete
+    AS Path Attributes: Or-ID - Originator ID, C-LST - Cluster List, LL Nexthop - Link Local Nexthop
+    
+              Network                Next Hop              Metric  LocPref Weight  Path
+     * >      RD: 10.1.0.1:10100 mac-ip 0050.7966.6806
+                                     -                     -       -       0       i
+     * >Ec    RD: 10.1.0.2:10100 mac-ip 0050.7966.6807
+                                     10.0.0.2              -       100     0       i Or-ID: 10.1.0.2 C-LST: 10.1.2.0
+     *  ec    RD: 10.1.0.2:10100 mac-ip 0050.7966.6807
+                                     10.0.0.2              -       100     0       i Or-ID: 10.1.0.2 C-LST: 10.1.1.0
 
 ### Конфигурация на оборудовании Huawei/Arista
 
@@ -345,7 +298,80 @@ Destination/Mask    Proto   Pre  Cost        Flags NextHop         Interface
 <summary> Spine-1 </summary>
 
 ```
-
+<Spine-1>display current-configuration
+!Software Version V200R005C10SPC607B607
+!Last configuration was updated at 2024-07-10 07:47:19+00:00 by SYSTEM automatically
+!Last configuration was saved at 2024-07-10 16:23:18+00:00
+#
+sysname Spine-1
+#
+evpn-overlay enable
+#
+isis 1
+ cost-style wide
+ network-entity 49.0010.0100.0000.1000.00
+#
+interface GE1/0/0
+ undo portswitch
+ description to Leaf-1
+ undo shutdown
+ ip address 10.2.1.0 255.255.255.254
+ isis enable 1
+ isis circuit-type p2p
+#
+interface GE1/0/1
+ undo portswitch
+ description to Leaf-2
+ undo shutdown
+ ip address 10.2.1.2 255.255.255.254
+ isis enable 1
+ isis circuit-type p2p
+#
+interface GE1/0/2
+ undo portswitch
+ description to Leaf-3
+ undo shutdown
+ ip address 10.2.1.4 255.255.255.254
+ isis enable 1
+ isis circuit-type p2p
+#
+interface LoopBack1
+ description Underlay
+ ip address 10.0.1.0 255.255.255.255
+ isis enable 1
+#
+interface LoopBack2
+ description Overlay
+ ip address 10.1.1.0 255.255.255.255
+#
+bgp 65000
+ router-id 10.1.1.0
+ group LEAVES internal
+ peer LEAVES connect-interface LoopBack1
+ peer 10.0.0.1 as-number 65000
+ peer 10.0.0.1 group LEAVES
+ peer 10.0.0.2 as-number 65000
+ peer 10.0.0.2 group LEAVES
+ peer 10.0.0.3 as-number 65000
+ peer 10.0.0.3 group LEAVES
+ #
+ ipv4-family unicast
+  undo peer LEAVES enable
+  undo peer 10.0.0.1 enable
+  undo peer 10.0.0.2 enable
+  undo peer 10.0.0.3 enable
+ #
+ l2vpn-family evpn
+  undo policy vpn-target
+  peer LEAVES enable
+  peer LEAVES reflect-client
+  peer 10.0.0.1 enable
+  peer 10.0.0.1 group LEAVES
+  peer 10.0.0.2 enable
+  peer 10.0.0.2 group LEAVES
+  peer 10.0.0.3 enable
+  peer 10.0.0.3 group LEAVES
+#
 ```
 
 </details>
@@ -354,7 +380,80 @@ Destination/Mask    Proto   Pre  Cost        Flags NextHop         Interface
 <summary> Spine-2 </summary>
 
 ```
-
+<Spine-2>display current-configuration
+!Software Version V200R005C10SPC607B607
+!Last configuration was updated at 2024-07-10 07:47:21+00:00 by SYSTEM automatically
+!Last configuration was saved at 2024-07-09 14:59:15+00:00
+#
+sysname Spine-2
+#
+evpn-overlay enable
+#
+isis 1
+ cost-style wide
+ network-entity 49.0010.0100.0000.2000.00
+#
+interface GE1/0/0
+ undo portswitch
+ description to Leaf-1
+ undo shutdown
+ ip address 10.2.2.0 255.255.255.254
+ isis enable 1
+ isis circuit-type p2p
+#
+interface GE1/0/1
+ undo portswitch
+ description to Leaf-2
+ undo shutdown
+ ip address 10.2.2.2 255.255.255.254
+ isis enable 1
+ isis circuit-type p2p
+#
+interface GE1/0/2
+ undo portswitch
+ description to Leaf-3
+ undo shutdown
+ ip address 10.2.2.4 255.255.255.254
+ isis enable 1
+ isis circuit-type p2p
+#
+interface LoopBack1
+ description Underlay
+ ip address 10.0.2.0 255.255.255.255
+ isis enable 1
+#
+interface LoopBack2
+ description Overlay
+ ip address 10.1.2.0 255.255.255.255
+#
+bgp 65000
+ router-id 10.1.2.0
+ group LEAVES internal
+ peer LEAVES connect-interface LoopBack1
+ peer 10.0.0.1 as-number 65000
+ peer 10.0.0.1 group LEAVES
+ peer 10.0.0.2 as-number 65000
+ peer 10.0.0.2 group LEAVES
+ peer 10.0.0.3 as-number 65000
+ peer 10.0.0.3 group LEAVES
+ #
+ ipv4-family unicast
+  undo peer LEAVES enable
+  undo peer 10.0.0.1 enable
+  undo peer 10.0.0.2 enable
+  undo peer 10.0.0.3 enable
+ #
+ l2vpn-family evpn
+  undo policy vpn-target
+  peer LEAVES enable
+  peer LEAVES reflect-client
+  peer 10.0.0.1 enable
+  peer 10.0.0.1 group LEAVES
+  peer 10.0.0.2 enable
+  peer 10.0.0.2 group LEAVES
+  peer 10.0.0.3 enable
+  peer 10.0.0.3 group LEAVES
+#
 ```
 
 </details>
@@ -363,7 +462,76 @@ Destination/Mask    Proto   Pre  Cost        Flags NextHop         Interface
 <summary> Leaf-1 </summary>
 
 ```
-
+Leaf-1#show running-config
+! Command: show running-config
+! device: Leaf-1 (vEOS-lab, EOS-4.29.2F)
+!
+service routing protocols model multi-agent
+!
+hostname Leaf-1
+!
+vlan 100
+!
+interface Ethernet1
+   description to Spine-1
+   no switchport
+   ip address 10.2.1.1/31
+   isis enable 1
+   isis network point-to-point
+!
+interface Ethernet2
+   description to Spine-2
+   no switchport
+   ip address 10.2.2.1/31
+   isis enable 1
+   isis network point-to-point
+!
+interface Ethernet8
+   description to Client-1
+   switchport access vlan 100
+!
+interface Loopback1
+   description Underlay
+   ip address 10.0.0.1/32
+   isis enable 1
+!
+interface Loopback2
+   description Overlay
+   ip address 10.1.0.1/32
+!
+interface Vxlan1
+   vxlan source-interface Loopback1
+   vxlan udp-port 4789
+   vxlan vlan 100 vni 10100
+   vxlan learn-restrict any
+!
+ip routing
+!
+router bgp 65000
+   router-id 10.1.0.1
+   no bgp default ipv4-unicast
+   neighbor SPINES peer group
+   neighbor SPINES remote-as 65000
+   neighbor SPINES update-source Loopback1
+   neighbor SPINES send-community extended
+   neighbor 10.0.1.0 peer group SPINES
+   neighbor 10.0.2.0 peer group SPINES
+   !
+   vlan 100
+      rd 10.1.0.1:10100
+      route-target both 65000:10100
+      redistribute learned
+   !
+   address-family evpn
+      neighbor SPINES activate
+!
+router isis 1
+   net 49.0010.0100.0000.0001.00
+   is-type level-1
+   !
+   address-family ipv4 unicast
+!
+end
 ```
 
 </details>
@@ -372,7 +540,76 @@ Destination/Mask    Proto   Pre  Cost        Flags NextHop         Interface
 <summary> Leaf-2 </summary>
 
 ```
-
+Leaf-2#show running-config
+! Command: show running-config
+! device: Leaf-2 (vEOS-lab, EOS-4.29.2F)
+!
+service routing protocols model multi-agent
+!
+hostname Leaf-2
+!
+vlan 200
+!
+interface Ethernet1
+   description to Spine-1
+   no switchport
+   ip address 10.2.1.3/31
+   isis enable 1
+   isis network point-to-point
+!
+interface Ethernet2
+   description to Spine-2
+   no switchport
+   ip address 10.2.2.3/31
+   isis enable 1
+   isis network point-to-point
+!
+interface Ethernet8
+   description to Client-2
+   switchport access vlan 200
+!
+interface Loopback1
+   description Underlay
+   ip address 10.0.0.2/32
+   isis enable 1
+!
+interface Loopback2
+   description Overlay
+   ip address 10.1.0.2/32
+!
+interface Vxlan1
+   vxlan source-interface Loopback1
+   vxlan udp-port 4789
+   vxlan vlan 200 vni 10100
+   vxlan learn-restrict any
+!
+ip routing
+!
+router bgp 65000
+   router-id 10.1.0.2
+   no bgp default ipv4-unicast
+   neighbor SPINES peer group
+   neighbor SPINES remote-as 65000
+   neighbor SPINES update-source Loopback1
+   neighbor SPINES send-community extended
+   neighbor 10.0.1.0 peer group SPINES
+   neighbor 10.0.2.0 peer group SPINES
+   !
+   vlan 200
+      rd 10.1.0.2:10100
+      route-target both 65000:10100
+      redistribute learned
+   !
+   address-family evpn
+      neighbor SPINES activate
+!
+router isis 1
+   net 49.0010.0100.0000.0002.00
+   is-type level-1
+   !
+   address-family ipv4 unicast
+!
+end
 ```
 
 </details>
