@@ -75,46 +75,44 @@ Client-2|eth0|10.4.0.3|255.255.255.192
 
 ### Настройка ISIS для Underlay
 
-Поднимаем iBGP на устройстве. В качестве router id используем IP с интерфейса Loopback1.
+На устройствах типа Leaf настраиваем L1, на устройствах типа Spine настраиваем L1/L2 (L2 оставляем для возможных расширений в будущем).
 
-Пример настройки:
+Поднимаем ISIS на устройстве. 
 
-    bgp 65000
-     router-id 10.0.0.1
+Пример настройки для Laef (Arista):
 
-Для минимизации настроек будем использовать BGP Peer Group при настройке BGP соседей. BGP Peer Group позволяет задавать единые настройки для всех соседей в группе. При этом на Spine лучше использовать Dynamic BGP Peer Group, что позволеят не менять настройки Spine при добавление новых Leaf. Но к сожалению тестовый стенд не позволяет настроить динамические группы, поэтому будем использовать обычные группы как на Leaf, так и на Spine.
- 
-Пример настройки iBGP соседства:
+    router isis 1
+       net 49.0010.0100.0000.0001.00
+       is-type level-1
+       !
+       address-family ipv4 unicast
 
-```
- group SPINES internal
- peer 10.2.1.0 as-number 65000
- peer 10.2.1.0 group SPINES
- peer 10.2.2.0 as-number 65000
- peer 10.2.2.0 group SPINES
- #
- ipv4-family unicast
-  peer SPINES enable
-  peer 10.2.1.0 enable
-  peer 10.2.1.0 group SPINES
-  peer 10.2.2.0 enable
-  peer 10.2.2.0 group SPINES
-```
+Пример настройки для Spine (Huawei):
 
-Анонсируем IP-адреса Lo1 интрефесов и стыковочные p2p-сети в BGP:
+    isis 1
+     cost-style wide
+     network-entity 49.0010.0100.0000.1000.00
 
-      network 10.0.0.1 255.255.255.255
-      network 10.2.1.0 255.255.255.254
-      network 10.2.2.0 255.255.255.254
+Для топологии CLOS хорошо подходит ISIS в режиме работы *point-to-point*. 
 
-Так как у нас нет связей между Leaf'ами, то необходимо на Spine настроить механизм Route Reflector. Это повзолит Leaf'ам получать все маршруты с других Leaf. 
+Поднимаем ISIS на всех интерфейсах Leaf <-> Spine и Loopback1.
 
-Пример настройки на Spine:
+Пример настройки физического интерфейса Huawei:
 
-    bgp 65000
-      #
-      ipv4-family unicast
-        peer LEAVES reflect-client
+    interface GE1/0/0
+      isis enable 1
+      isis circuit-type p2p
+
+Пример настройки физического интерфейса Arista:
+
+    interface Ethernet1
+       isis enable 1
+       isis network point-to-point
+
+Пример настройки Loopback интерфейса Huawei/Arista:
+
+    interface LoopBack1
+      isis enable 1
 
 ### Настройка Overlay на основе VxLAN EVPN для L2 связанности между клиентами
 
