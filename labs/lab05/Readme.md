@@ -11,7 +11,7 @@
 
 ![Network scheme](network_scheme5.png)
 
-Ввиду того, что на оборудовании Huawei в тестовом стенде не отрабатывает BGP EVPN control plane на Leaf устройствах было принято решение все Leaf заменить на Arista. Устройства Spine оставляем на Huawei.
+Ввиду того, что на оборудовании Huawei в тестовом стенде не отрабатывает BGP EVPN control plane на Leaf устройствах, было принято решение Leaf заменить на Arista. Устройства Spine оставляем на Huawei.
 
 ### IP план
 
@@ -79,8 +79,10 @@ Client-2|eth0|10.4.0.3|255.255.255.192
 
 Поднимаем ISIS на устройстве. 
 
-Пример настройки для Laef (Arista):
+Пример настройки для Leaf (Arista):
 
+    ip routing
+    !
     router isis 1
        net 49.0010.0100.0000.0001.00
        is-type level-1
@@ -115,6 +117,77 @@ Client-2|eth0|10.4.0.3|255.255.255.192
       isis enable 1
 
 ### Настройка Overlay на основе VxLAN EVPN для L2 связанности между клиентами
+
+#### Настройка BGP EVPN Overlay между Leaf'ми и Spine'ми
+
+Для передачи control plane информации в Overlay будем использовать iBGP. Для начала настроим BGP соседство Leaf <> Spine. В качестве Router ID будем использовать IP-адреса Lo2 интерфейсов. Все соединения будем поднимать с Lo1 интерфейсов.
+
+Пример настройки BGP на Spine (Huawei):
+
+    bgp 65000
+     router-id 10.1.1.0
+     group LEAVES internal
+     peer LEAVES connect-interface LoopBack1
+     peer 10.0.0.1 as-number 65000
+     peer 10.0.0.1 group LEAVES
+     peer 10.0.0.2 as-number 65000
+     peer 10.0.0.2 group LEAVES
+     peer 10.0.0.3 as-number 65000
+     peer 10.0.0.3 group LEAVES
+
+*к сожалению Huawei на тестовом стенде не позволяет использовать динамеческие группы, поэтому используем обычные.*
+
+Пример настройки BGP на Leaf (Arista):
+
+    router bgp 65000
+       router-id 10.1.0.1
+       no bgp default ipv4-unicast
+       neighbor SPINES peer group
+       neighbor SPINES remote-as 65000
+       neighbor SPINES update-source Loopback1
+       neighbor SPINES send-community extended
+       neighbor 10.0.1.0 peer group SPINES
+       neighbor 10.0.2.0 peer group SPINES
+
+Добавляем поддержку address-family evpn в BGP для обмена EVPN маршрутами.
+
+Пример настройки на Spine (Huawei):
+
+    evpn-overlay enable
+    #
+    bgp 65000
+    #
+     l2vpn-family evpn
+      undo policy vpn-target
+      peer LEAVES enable
+      peer LEAVES reflect-client
+      peer 10.0.0.1 enable
+      peer 10.0.0.1 group LEAVES
+      peer 10.0.0.2 enable
+      peer 10.0.0.2 group LEAVES
+      peer 10.0.0.3 enable
+      peer 10.0.0.3 group LEAVES
+
+Пример настройки на Leaf (Arista):
+
+    service routing protocols model multi-agent
+    !
+    router bgp 65000
+       address-family evpn
+          neighbor SPINES activate
+
+Проверим на Leaf, что соседства поднялись:
+
+    Leaf-1#show bgp evpn summary
+    BGP summary information for VRF default
+    Router identifier 10.1.0.1, local AS number 65000
+    Neighbor Status Codes: m - Under maintenance
+      Neighbor V AS           MsgRcvd   MsgSent  InQ OutQ  Up/Down State   PfxRcd PfxAcc
+      10.0.1.0 4 65000            440       445    0    0 06:11:15 Estab   2      2
+      10.0.2.0 4 65000            441       445    0    0 06:11:10 Estab   2      2
+
+#### Настройка VxLAN L2 VNI
+
 
 
 
