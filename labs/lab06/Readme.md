@@ -131,7 +131,7 @@ Client-1> ping 10.4.0.66
           route-target export evpn 65000:10000
           redistribute connected
 
-Команда *redistribute connected* отвечает анонс всех direct connected в vrf VxLAN сетей через BGP.
+Команда *redistribute connected* отвечает за анонс всех direct connected в vrf VxLAN сетей через BGP.
 
 Добавляем SVI в L3VNI:
 
