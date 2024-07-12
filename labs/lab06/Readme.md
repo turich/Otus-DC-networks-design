@@ -152,23 +152,56 @@ Client-1> ping 10.4.0.66
 84 bytes from 10.4.0.66 icmp_seq=5 ttl=62 time=43.701 ms
 ```
 
-Так же на Leaf видим, что появились машруты type 5
+Так же на Leaf видим, что появились машруты type 2 c mac+ip
 
-    Leaf-1(config)#show bgp evpn route-type ip-prefix ipv4
-    BGP routing table information for VRF default
-    Router identifier 10.1.0.1, local AS number 65000
-    Route status codes: * - valid, > - active, S - Stale, E - ECMP head, e - ECMP
-                        c - Contributing to ECMP, % - Pending BGP convergence
-    Origin codes: i - IGP, e - EGP, ? - incomplete
-    AS Path Attributes: Or-ID - Originator ID, C-LST - Cluster List, LL Nexthop - Link Local Nexthop
-    
-              Network                Next Hop              Metric  LocPref Weight  Path
-     * >      RD: 10.1.0.1:10000 ip-prefix 10.4.0.0/26
-                                     -                     -       -       0       i
-     * >      RD: 10.1.0.2:10000 ip-prefix 10.4.0.64/26
-                                     10.0.0.2              -       100     0       i Or-ID: 10.1.0.2 C-LST: 10.1.1.0
-     *        RD: 10.1.0.2:10000 ip-prefix 10.4.0.64/26
-                                     10.0.0.2              -       100     0       i Or-ID: 10.1.0.2 C-LST: 10.1.2.0
+```
+Leaf-1(config)#show bgp evpn route-type mac-ip
+BGP routing table information for VRF default
+Router identifier 10.1.0.1, local AS number 65000
+Route status codes: * - valid, > - active, S - Stale, E - ECMP head, e - ECMP
+                    c - Contributing to ECMP, % - Pending BGP convergence
+Origin codes: i - IGP, e - EGP, ? - incomplete
+AS Path Attributes: Or-ID - Originator ID, C-LST - Cluster List, LL Nexthop - Link Local Nexthop
+
+          Network                Next Hop              Metric  LocPref Weight  Path
+ * >      RD: 10.1.0.1:10100 mac-ip 0050.7966.6806
+                                 -                     -       -       0       i
+ * >      RD: 10.1.0.1:10100 mac-ip 0050.7966.6806 10.4.0.2
+                                 -                     -       -       0       i
+ * >Ec    RD: 10.1.0.2:10200 mac-ip 0050.7966.6807
+                                 10.0.0.2              -       100     0       i Or-ID: 10.1.0.2 C-LST: 10.1.2.0
+ *  ec    RD: 10.1.0.2:10200 mac-ip 0050.7966.6807
+                                 10.0.0.2              -       100     0       i Or-ID: 10.1.0.2 C-LST: 10.1.1.0
+ * >Ec    RD: 10.1.0.2:10200 mac-ip 0050.7966.6807 10.4.0.66
+                                 10.0.0.2              -       100     0       i Or-ID: 10.1.0.2 C-LST: 10.1.2.0
+ *  ec    RD: 10.1.0.2:10200 mac-ip 0050.7966.6807 10.4.0.66
+                                 10.0.0.2              -       100     0       i Or-ID: 10.1.0.2 C-LST: 10.1.1.0
+```
+
+И в таблице маршрутизации L3VNI появились машруты /32 :
+
+```
+Leaf-1(config)#show ip route vrf VxLAN
+
+VRF: VxLAN
+Codes: C - connected, S - static, K - kernel,
+       O - OSPF, IA - OSPF inter area, E1 - OSPF external type 1,
+       E2 - OSPF external type 2, N1 - OSPF NSSA external type 1,
+       N2 - OSPF NSSA external type2, B - Other BGP Routes,
+       B I - iBGP, B E - eBGP, R - RIP, I L1 - IS-IS level 1,
+       I L2 - IS-IS level 2, O3 - OSPFv3, A B - BGP Aggregate,
+       A O - OSPF Summary, NG - Nexthop Group Static Route,
+       V - VXLAN Control Service, M - Martian,
+       DH - DHCP client installed default route,
+       DP - Dynamic Policy Route, L - VRF Leaked,
+       G  - gRIBI, RC - Route Cache Route
+
+Gateway of last resort is not set
+
+ C        10.4.0.0/26 is directly connected, Vlan100
+ B I      10.4.0.66/32 [200/0] via VTEP 10.0.0.2 VNI 10000 router-mac 50:00:00:cb:38:c2 local-interface Vxlan1
+ B I      10.4.0.64/26 [200/0] via VTEP 10.0.0.2 VNI 10000 router-mac 50:00:00:cb:38:c2 local-interface Vxlan1
+```
 
 ### Конфигурация на оборудовании Huawei/Arista
 
@@ -242,6 +275,7 @@ bgp 65000
  l2vpn-family evpn
   undo policy vpn-target
   peer LEAVES enable
+  peer LEAVES advertise irb
   peer LEAVES reflect-client
   peer 10.0.0.1 enable
   peer 10.0.0.1 group LEAVES
@@ -324,6 +358,7 @@ bgp 65000
  l2vpn-family evpn
   undo policy vpn-target
   peer LEAVES enable
+  peer LEAVES advertise irb
   peer LEAVES reflect-client
   peer 10.0.0.1 enable
   peer 10.0.0.1 group LEAVES
