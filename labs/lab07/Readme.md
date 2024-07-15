@@ -63,55 +63,36 @@ interface Ethernet2
    channel-group 1 mode active
 ```
 
-### Настройка отказоустойчивого подключения клиента с использованием EVPN Multihoming (ESI LAG)
+### Настройка отказоустойчивого подключения клиента с использованием EVPN Multihoming
 
-На Leaf-1 создадим VLAN 100 и разрешим его в сторону Client-1. На Leaf-2 создадим VLAN 200 и разрешим его в сторону Client-2.
+Для настройки EVPN Multihoming нам необходимо на Leaf которые задействованы в данной схеме выполнить одинаковые настройки для Etherchannel и задать следующие параметры:
 
-Пример настройки для Leaf-1:
+**Ethernet Segment Identifier (ESI)**. Для простоты настройки и отладки предлагается использовать следующий формат: 0000:0000:<lower-leaf-ID>:<higher-leaf-ID>:<port-channel-ID>. Например в нашем случае получается: *0000:0000:0002:0003:0023*
 
-    vlan 100
-    !
-    interface Ethernet8
-       description to Client-1
-       switchport access vlan 100
+**route-target** необходим для того, чтоб только Leaf'ы обслуживающие ESI могли импортировать данные маршруты. Предлагается использовать принцип формирования как и для ESI: <lower-leaf-ID>:<higher-leaf-ID>:<port-channel-ID>. Например в нашем случае получается: *00:02:00:03:00:23*
 
-Создаем VNI 10100 и добавляем в него VLAN 100 на Leaf-1. Создаем VNI 10200 и добавляем в него VLAN 200 на Leaf-2.
+**lacp system-id** необходим для того, чтоб устройство Client-2 считало, что поднимет LACP с одним и тем же устройством.  Предлагается использовать следующий формат: 0000:<lower-node-ID>:<higher-node-ID>. Например в нашем случае получается: *0000.0002.0003*
 
-Пример настройки для Leaf-1:
+Пример настройки Port-Channel на Leaf-2 (для Leaf-3 настройки идентичные):
 
-    interface Vxlan1
-       vxlan vlan 100 vni 10100
-    !
-    router bgp 65000
-       vlan 100
-          rd 10.1.0.1:10100
-          route-target both 65000:10100
-          redistribute learned
+      interface Port-Channel23
+         description to Client-2
+         switchport access vlan 200
+         !
+         evpn ethernet-segment
+            identifier 0000:0000:0002:0003:0023
+            route-target import 00:02:00:03:00:23
+         lacp system-id 0000.0002.0003
 
-Команда *redistribute learned* отвечает за то, что как только коммутатор узнает mac address через data plane, он его анонсирует через BGP.
+Так же добавляем требуемый интерфейс в наш Port-Channel в режиме active:
 
-Настраиваем SVI на Leaf-1 и Leaf-2 для каждого из клиентов.
+      interface Ethernet8
+         description to Client-2
+         channel-group 23 mode active
 
-Пример настройки для Leaf-1:
+### Настройка VXLAN L2 VNI между клиентами
 
-    ip virtual-router mac-address 00:66:00:00:00:00
-    !
-    interface Vlan100
-       ip address virtual 10.4.0.1/26
 
-Для каждого VNI настраиваем единый виртуальный IP-адрес и единый MAC для работы фукционала Anycast Gateway. Это позволяет "бесшовно" мигрировать хостам между Leaf'ми.
-
-Т.к. Client-1 и Client-2 находятся в разных VNI, то между ними отсутствует IP связност. Прверим это:
-
-```
-Client-1> ping 10.4.0.66
-
-*10.4.0.1 icmp_seq=1 ttl=64 time=17.459 ms (ICMP type:3, code:0, Destination network unreachable)
-*10.4.0.1 icmp_seq=2 ttl=64 time=13.882 ms (ICMP type:3, code:0, Destination network unreachable)
-*10.4.0.1 icmp_seq=3 ttl=64 time=8.812 ms (ICMP type:3, code:0, Destination network unreachable)
-*10.4.0.1 icmp_seq=4 ttl=64 time=11.673 ms (ICMP type:3, code:0, Destination network unreachable)
-*10.4.0.1 icmp_seq=5 ttl=64 time=9.904 ms (ICMP type:3, code:0, Destination network unreachable)
-```
 
 ### Проверка наличия IP связанности между клиентами
 
