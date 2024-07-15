@@ -6,3 +6,4 @@
  - [Lab04. Настройка iBGP для Underlay сети](lab04/)
  - [Lab05. Настройка VxLAN. L2 VNI](lab05/)
  - [Lab06. Настройка VxLAN. L3 VNI](lab06/)
+ - [Lab07. Настройка VxLAN. Multihoming](lab07/)
