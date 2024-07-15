@@ -192,6 +192,60 @@ AS Path Attributes: Or-ID - Originator ID, C-LST - Cluster List, LL Nexthop - Li
                                  10.0.0.3              -       100     0       i Or-ID: 10.1.0.3 C-LST: 10.1.1.0
 ```
 
+### Тестирование отказоустойчивости.
+
+Для проверки отказоустойчивости, смоделируем падение одного из линков в сторону клиента и проверим наличие IP связности между клиентами и наличе маршрутов type 1 и type 2.
+
+Видим, что связность между клиентами не пропала.
+
+```
+Client-1> ping 10.4.0.2
+
+84 bytes from 10.4.0.2 icmp_seq=1 ttl=64 time=183.274 ms
+84 bytes from 10.4.0.2 icmp_seq=2 ttl=64 time=65.176 ms
+84 bytes from 10.4.0.2 icmp_seq=3 ttl=64 time=42.046 ms
+84 bytes from 10.4.0.2 icmp_seq=4 ttl=64 time=38.055 ms
+84 bytes from 10.4.0.2 icmp_seq=5 ttl=64 time=37.929 ms
+```
+
+При этому у нас пропали машруты с Leaf-2.
+
+```
+Leaf-1(config)#show bgp evpn route-type auto-discovery
+BGP routing table information for VRF default
+Router identifier 10.1.0.1, local AS number 65000
+Route status codes: * - valid, > - active, S - Stale, E - ECMP head, e - ECMP
+                    c - Contributing to ECMP, % - Pending BGP convergence
+Origin codes: i - IGP, e - EGP, ? - incomplete
+AS Path Attributes: Or-ID - Originator ID, C-LST - Cluster List, LL Nexthop - Link Local Nexthop
+
+          Network                Next Hop              Metric  LocPref Weight  Path
+ * >Ec    RD: 10.1.0.3:10100 auto-discovery 0 0000:0000:0002:0003:0023
+                                 10.0.0.3              -       100     0       i Or-ID: 10.1.0.3 C-LST: 10.1.2.0
+ *  ec    RD: 10.1.0.3:10100 auto-discovery 0 0000:0000:0002:0003:0023
+                                 10.0.0.3              -       100     0       i Or-ID: 10.1.0.3 C-LST: 10.1.1.0
+ * >Ec    RD: 10.0.0.3:1 auto-discovery 0000:0000:0002:0003:0023
+                                 10.0.0.3              -       100     0       i Or-ID: 10.1.0.3 C-LST: 10.1.2.0
+ *  ec    RD: 10.0.0.3:1 auto-discovery 0000:0000:0002:0003:0023
+                                 10.0.0.3              -       100     0       i Or-ID: 10.1.0.3 C-LST: 10.1.1.0
+```
+
+```
+Leaf-1(config)#show bgp evpn route-type ethernet-segment
+BGP routing table information for VRF default
+Router identifier 10.1.0.1, local AS number 65000
+Route status codes: * - valid, > - active, S - Stale, E - ECMP head, e - ECMP
+                    c - Contributing to ECMP, % - Pending BGP convergence
+Origin codes: i - IGP, e - EGP, ? - incomplete
+AS Path Attributes: Or-ID - Originator ID, C-LST - Cluster List, LL Nexthop - Link Local Nexthop
+
+          Network                Next Hop              Metric  LocPref Weight  Path
+ * >Ec    RD: 10.0.0.3:1 ethernet-segment 0000:0000:0002:0003:0023 10.0.0.3
+                                 10.0.0.3              -       100     0       i Or-ID: 10.1.0.3 C-LST: 10.1.2.0
+ *  ec    RD: 10.0.0.3:1 ethernet-segment 0000:0000:0002:0003:0023 10.0.0.3
+                                 10.0.0.3              -       100     0       i Or-ID: 10.1.0.3 C-LST: 10.1.1.0
+```
+
 ### Конфигурация на оборудовании Huawei/Arista
 
 <details>
