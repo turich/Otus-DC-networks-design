@@ -92,26 +92,58 @@ interface Ethernet2
 
 ### Настройка VXLAN L2 VNI между клиентами
 
+Более подробно настройка описана в лабораторной работе №5.
 
+Пример настройки для Leaf-1:
+
+```
+interface Vxlan1
+   vxlan source-interface Loopback1
+   vxlan udp-port 4789
+   vxlan vlan 100 vni 10100
+   vxlan learn-restrict any
+!
+router bgp 65000
+   vlan 100
+      rd 10.1.0.1:10100
+      route-target both 65000:10100
+      redistribute learned
+```
+
+Пример настройки для Leaf-2:
+
+```
+interface Vxlan1
+   vxlan source-interface Loopback1
+   vxlan udp-port 4789
+   vxlan vlan 200 vni 10100
+   vxlan learn-restrict any
+!
+router bgp 65000
+   vlan 200
+      rd 10.1.0.2:10100
+      route-target both 65000:10100
+      redistribute learned
+```
 
 ### Проверка наличия IP связанности между клиентами
 
 Проверяем наличия IP связанности между клиентами:
 
 ```
-Client-1> ping 10.4.0.66
+Client-1> ping 10.4.0.2
 
-84 bytes from 10.4.0.66 icmp_seq=1 ttl=62 time=295.753 ms
-84 bytes from 10.4.0.66 icmp_seq=2 ttl=62 time=33.995 ms
-84 bytes from 10.4.0.66 icmp_seq=3 ttl=62 time=43.738 ms
-84 bytes from 10.4.0.66 icmp_seq=4 ttl=62 time=41.042 ms
-84 bytes from 10.4.0.66 icmp_seq=5 ttl=62 time=43.701 ms
+84 bytes from 10.4.0.2 icmp_seq=1 ttl=64 time=103.350 ms
+84 bytes from 10.4.0.2 icmp_seq=2 ttl=64 time=49.127 ms
+84 bytes from 10.4.0.2 icmp_seq=3 ttl=64 time=42.259 ms
+84 bytes from 10.4.0.2 icmp_seq=4 ttl=64 time=44.458 ms
+84 bytes from 10.4.0.2 icmp_seq=5 ttl=64 time=48.386 ms
 ```
 
-Так же на Leaf видим, что появились машруты type 2 c mac+ip
+Так же на Leaf видим, что появились машруты type 1 auto-discovery
 
 ```
-Leaf-1(config)#show bgp evpn route-type mac-ip
+Leaf-1(config)#show bgp evpn route-type auto-discovery
 BGP routing table information for VRF default
 Router identifier 10.1.0.1, local AS number 65000
 Route status codes: * - valid, > - active, S - Stale, E - ECMP head, e - ECMP
@@ -120,43 +152,44 @@ Origin codes: i - IGP, e - EGP, ? - incomplete
 AS Path Attributes: Or-ID - Originator ID, C-LST - Cluster List, LL Nexthop - Link Local Nexthop
 
           Network                Next Hop              Metric  LocPref Weight  Path
- * >      RD: 10.1.0.1:10100 mac-ip 0050.7966.6806
-                                 -                     -       -       0       i
- * >      RD: 10.1.0.1:10100 mac-ip 0050.7966.6806 10.4.0.2
-                                 -                     -       -       0       i
- * >Ec    RD: 10.1.0.2:10200 mac-ip 0050.7966.6807
-                                 10.0.0.2              -       100     0       i Or-ID: 10.1.0.2 C-LST: 10.1.2.0
- *  ec    RD: 10.1.0.2:10200 mac-ip 0050.7966.6807
+ * >Ec    RD: 10.1.0.2:10100 auto-discovery 0 0000:0000:0002:0003:0023
                                  10.0.0.2              -       100     0       i Or-ID: 10.1.0.2 C-LST: 10.1.1.0
- * >Ec    RD: 10.1.0.2:10200 mac-ip 0050.7966.6807 10.4.0.66
+ *  ec    RD: 10.1.0.2:10100 auto-discovery 0 0000:0000:0002:0003:0023
                                  10.0.0.2              -       100     0       i Or-ID: 10.1.0.2 C-LST: 10.1.2.0
- *  ec    RD: 10.1.0.2:10200 mac-ip 0050.7966.6807 10.4.0.66
+ * >Ec    RD: 10.1.0.3:10100 auto-discovery 0 0000:0000:0002:0003:0023
+                                 10.0.0.3              -       100     0       i Or-ID: 10.1.0.3 C-LST: 10.1.2.0
+ *  ec    RD: 10.1.0.3:10100 auto-discovery 0 0000:0000:0002:0003:0023
+                                 10.0.0.3              -       100     0       i Or-ID: 10.1.0.3 C-LST: 10.1.1.0
+ * >Ec    RD: 10.0.0.2:1 auto-discovery 0000:0000:0002:0003:0023
                                  10.0.0.2              -       100     0       i Or-ID: 10.1.0.2 C-LST: 10.1.1.0
+ *  ec    RD: 10.0.0.2:1 auto-discovery 0000:0000:0002:0003:0023
+                                 10.0.0.2              -       100     0       i Or-ID: 10.1.0.2 C-LST: 10.1.2.0
+ * >Ec    RD: 10.0.0.3:1 auto-discovery 0000:0000:0002:0003:0023
+                                 10.0.0.3              -       100     0       i Or-ID: 10.1.0.3 C-LST: 10.1.2.0
+ *  ec    RD: 10.0.0.3:1 auto-discovery 0000:0000:0002:0003:0023
+                                 10.0.0.3              -       100     0       i Or-ID: 10.1.0.3 C-LST: 10.1.1.0
 ```
 
-И в таблице маршрутизации L3VNI появились машруты /32 :
+и машруты type 4 ethernet-segment
 
 ```
-Leaf-1(config)#show ip route vrf VxLAN
+Leaf-1(config)#show bgp evpn route-type ethernet-segment
+BGP routing table information for VRF default
+Router identifier 10.1.0.1, local AS number 65000
+Route status codes: * - valid, > - active, S - Stale, E - ECMP head, e - ECMP
+                    c - Contributing to ECMP, % - Pending BGP convergence
+Origin codes: i - IGP, e - EGP, ? - incomplete
+AS Path Attributes: Or-ID - Originator ID, C-LST - Cluster List, LL Nexthop - Link Local Nexthop
 
-VRF: VxLAN
-Codes: C - connected, S - static, K - kernel,
-       O - OSPF, IA - OSPF inter area, E1 - OSPF external type 1,
-       E2 - OSPF external type 2, N1 - OSPF NSSA external type 1,
-       N2 - OSPF NSSA external type2, B - Other BGP Routes,
-       B I - iBGP, B E - eBGP, R - RIP, I L1 - IS-IS level 1,
-       I L2 - IS-IS level 2, O3 - OSPFv3, A B - BGP Aggregate,
-       A O - OSPF Summary, NG - Nexthop Group Static Route,
-       V - VXLAN Control Service, M - Martian,
-       DH - DHCP client installed default route,
-       DP - Dynamic Policy Route, L - VRF Leaked,
-       G  - gRIBI, RC - Route Cache Route
-
-Gateway of last resort is not set
-
- C        10.4.0.0/26 is directly connected, Vlan100
- B I      10.4.0.66/32 [200/0] via VTEP 10.0.0.2 VNI 10000 router-mac 50:00:00:cb:38:c2 local-interface Vxlan1
- B I      10.4.0.64/26 [200/0] via VTEP 10.0.0.2 VNI 10000 router-mac 50:00:00:cb:38:c2 local-interface Vxlan1
+          Network                Next Hop              Metric  LocPref Weight  Path
+ * >Ec    RD: 10.0.0.2:1 ethernet-segment 0000:0000:0002:0003:0023 10.0.0.2
+                                 10.0.0.2              -       100     0       i Or-ID: 10.1.0.2 C-LST: 10.1.2.0
+ *  ec    RD: 10.0.0.2:1 ethernet-segment 0000:0000:0002:0003:0023 10.0.0.2
+                                 10.0.0.2              -       100     0       i Or-ID: 10.1.0.2 C-LST: 10.1.1.0
+ * >Ec    RD: 10.0.0.3:1 ethernet-segment 0000:0000:0002:0003:0023 10.0.0.3
+                                 10.0.0.3              -       100     0       i Or-ID: 10.1.0.3 C-LST: 10.1.2.0
+ *  ec    RD: 10.0.0.3:1 ethernet-segment 0000:0000:0002:0003:0023 10.0.0.3
+                                 10.0.0.3              -       100     0       i Or-ID: 10.1.0.3 C-LST: 10.1.1.0
 ```
 
 ### Конфигурация на оборудовании Huawei/Arista
@@ -343,8 +376,6 @@ hostname Leaf-1
 !
 vlan 100
 !
-vrf instance VxLAN
-!
 interface Ethernet1
    description to Spine-1
    no switchport
@@ -372,21 +403,13 @@ interface Loopback2
    description Overlay
    ip address 10.1.0.1/32
 !
-interface Vlan100
-   vrf VxLAN
-   ip address virtual 10.4.0.1/26
-!
 interface Vxlan1
    vxlan source-interface Loopback1
    vxlan udp-port 4789
    vxlan vlan 100 vni 10100
-   vxlan vrf VxLAN vni 10000
    vxlan learn-restrict any
 !
-ip virtual-router mac-address 00:66:00:00:00:00
-!
 ip routing
-ip routing vrf VxLAN
 !
 router bgp 65000
    router-id 10.1.0.1
@@ -405,12 +428,6 @@ router bgp 65000
    !
    address-family evpn
       neighbor SPINES activate
-   !
-   vrf VxLAN
-      rd 10.1.0.1:10000
-      route-target import evpn 65000:10000
-      route-target export evpn 65000:10000
-      redistribute connected
 !
 router isis 1
    net 49.0010.0100.0000.0001.00
@@ -439,7 +456,14 @@ hostname Leaf-2
 !
 vlan 200
 !
-vrf instance VxLAN
+interface Port-Channel23
+   description to Client-2
+   switchport access vlan 200
+   !
+   evpn ethernet-segment
+      identifier 0000:0000:0002:0003:0023
+      route-target import 00:02:00:03:00:23
+   lacp system-id 0000.0002.0003
 !
 interface Ethernet1
    description to Spine-1
@@ -457,7 +481,7 @@ interface Ethernet2
 !
 interface Ethernet8
    description to Client-2
-   switchport access vlan 200
+   channel-group 23 mode active
 !
 interface Loopback1
    description Underlay
@@ -468,21 +492,13 @@ interface Loopback2
    description Overlay
    ip address 10.1.0.2/32
 !
-interface Vlan200
-   vrf VxLAN
-   ip address virtual 10.4.0.65/26
-!
 interface Vxlan1
    vxlan source-interface Loopback1
    vxlan udp-port 4789
-   vxlan vlan 200 vni 10200
-   vxlan vrf VxLAN vni 10000
+   vxlan vlan 200 vni 10100
    vxlan learn-restrict any
 !
-ip virtual-router mac-address 00:66:00:00:00:00
-!
 ip routing
-ip routing vrf VxLAN
 !
 router bgp 65000
    router-id 10.1.0.2
@@ -495,18 +511,12 @@ router bgp 65000
    neighbor 10.0.2.0 peer group SPINES
    !
    vlan 200
-      rd 10.1.0.2:10200
-      route-target both 65000:10200
+      rd 10.1.0.2:10100
+      route-target both 65000:10100
       redistribute learned
    !
    address-family evpn
       neighbor SPINES activate
-   !
-   vrf VxLAN
-      rd 10.1.0.2:10000
-      route-target import evpn 65000:10000
-      route-target export evpn 65000:10000
-      redistribute connected
 !
 router isis 1
    net 49.0010.0100.0000.0002.00
@@ -523,7 +533,119 @@ end
 <summary> Leaf-3 </summary>
 
 ```
+Leaf-3(config)#show running-config
+! Command: show running-config
+! device: Leaf-3 (vEOS-lab, EOS-4.29.2F)
+!
+service routing protocols model multi-agent
+!
+hostname Leaf-3
+!
+vlan 200
+!
+interface Port-Channel23
+   description to Client-2
+   switchport access vlan 200
+   !
+   evpn ethernet-segment
+      identifier 0000:0000:0002:0003:0023
+      route-target import 00:02:00:03:00:23
+   lacp system-id 0000.0002.0003
+!
+interface Ethernet1
+   description to Spine-1
+   no switchport
+   ip address 10.2.1.5/31
+   isis enable 1
+   isis network point-to-point
+!
+interface Ethernet2
+   description to Spine-2
+   no switchport
+   ip address 10.2.2.5/31
+   isis enable 1
+   isis network point-to-point
+!
+interface Ethernet8
+   description to Client-2
+   channel-group 23 mode active
+!
+interface Loopback1
+   description Underlay
+   ip address 10.0.0.3/32
+   isis enable 1
+!
+interface Loopback2
+   description Overlay
+   ip address 10.1.0.3/32
+!
+interface Vxlan1
+   vxlan source-interface Loopback1
+   vxlan udp-port 4789
+   vxlan vlan 200 vni 10100
+   vxlan learn-restrict any
+!
+ip routing
+!
+router bgp 65000
+   router-id 10.1.0.3
+   no bgp default ipv4-unicast
+   neighbor SPINES peer group
+   neighbor SPINES remote-as 65000
+   neighbor SPINES update-source Loopback1
+   neighbor SPINES send-community extended
+   neighbor 10.0.1.0 peer group SPINES
+   neighbor 10.0.2.0 peer group SPINES
+   !
+   vlan 200
+      rd 10.1.0.3:10100
+      route-target both 65000:10100
+      redistribute learned
+   !
+   address-family evpn
+      neighbor SPINES activate
+!
+router isis 1
+   net 49.0010.0100.0000.0003.00
+   is-type level-1
+   !
+   address-family ipv4 unicast
+!
+end
+```
 
+</details>
+
+<details>
+<summary> Client-2 </summary>
+
+```
+Client-2#show running-config
+! Command: show running-config
+! device: Client-2 (vEOS-lab, EOS-4.29.2F)
+!
+! boot system flash:/vEOS-lab.swi
+!
+service routing protocols model ribd
+!
+hostname Client-2
+!
+interface Port-Channel1
+   description to Leaf-2/3
+   no switchport
+   ip address 10.4.0.2/26
+!
+interface Ethernet1
+   description to Leaf-2
+   channel-group 1 mode active
+!
+interface Ethernet2
+   description to Leaf-3
+   channel-group 1 mode active
+!
+ip routing
+!
+end
 ```
 
 </details>
