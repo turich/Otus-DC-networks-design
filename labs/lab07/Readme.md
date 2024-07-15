@@ -63,9 +63,7 @@ interface Ethernet2
    channel-group 1 mode active
 ```
 
-### Настройка маршрутизации в рамках Overlay между клиентами для VxLAN
-
-#### Настройка SVI
+### Настройка отказоустойчивого подключения клиента с использованием EVPN Multihoming (ESI LAG)
 
 На Leaf-1 создадим VLAN 100 и разрешим его в сторону Client-1. На Leaf-2 создадим VLAN 200 и разрешим его в сторону Client-2.
 
@@ -114,34 +112,6 @@ Client-1> ping 10.4.0.66
 *10.4.0.1 icmp_seq=4 ttl=64 time=11.673 ms (ICMP type:3, code:0, Destination network unreachable)
 *10.4.0.1 icmp_seq=5 ttl=64 time=9.904 ms (ICMP type:3, code:0, Destination network unreachable)
 ```
-
-#### Настройка VxLAN L3 VNI
-
-Создадим общий L3VNI (VRF), назначим ему VNI 10000 и анонсируем его BGP EVPN.
-
-Пример настройки для Leaf-1:
-
-    vrf instance VxLAN
-    !
-    interface Vxlan1
-       vxlan vrf VxLAN vni 10000
-    !
-    ip routing vrf VxLAN
-    !
-    router bgp 65000
-       !
-       vrf VxLAN
-          rd 10.1.0.1:10000
-          route-target import evpn 65000:10000
-          route-target export evpn 65000:10000
-          redistribute connected
-
-Команда *redistribute connected* отвечает за анонс всех direct connected в vrf VxLAN сетей через BGP.
-
-Добавляем SVI в L3VNI:
-
-    interface Vlan100
-       vrf VxLAN
 
 ### Проверка наличия IP связанности между клиентами
 
