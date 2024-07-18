@@ -285,7 +285,7 @@ Client-1> ping 10.4.2.2
 84 bytes from 10.4.2.2 icmp_seq=5 ttl=59 time=123.702 ms
 ```
 
-Так же на Leaf-1 видим, что появились машруты type 5 ip-prefix с сумаризированными маршрутами из другой AS:
+Так же на Leaf-1 видим, что появились машруты type 5 ip-prefix с суммаризированными маршрутами из другой AS:
 
 ```
 Leaf-1(config)#sh bgp evpn route-type ip-prefix ipv4
